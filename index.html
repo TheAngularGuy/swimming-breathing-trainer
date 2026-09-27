@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Respiration carrée</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #E6EEEC; --ink: #23343B; --soft: #5E7278;
+    --accent: #3F7479; --glow: #A9C9C4; --line: #C3D3D0;
+    box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #142228; --ink: #DCE8E5; --soft: #93A9AC;
+      --accent: #7DB3AF; --glow: #2E4F52; --line: #2A3E43;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #142228; --ink: #DCE8E5; --soft: #93A9AC;
+    --accent: #7DB3AF; --glow: #2E4F52; --line: #2A3E43;
+  }
+  *, *::before, *::after { box-sizing: inherit; }
+  html { height: 100%; scroll-padding-top: env(safe-area-inset-top, 0px); }
+  body {
+    margin: 0; min-height: 100%;
+    background: var(--bg); color: var(--ink);
+    font-family: "Lexend", system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-weight: 300;
+    display: flex; flex-direction: column; align-items: center;
+  }
+  main {
+    width: 100%; max-width: 30rem;
+    padding: 1.5rem 1.25rem 2rem;
+    display: flex; flex-direction: column; align-items: center; gap: 1.4rem;
+  }
+  h1 { font-weight: 400; font-size: 1.25rem; margin: .5rem 0 0; }
+  .sub { margin: -.8rem 0 0; color: var(--soft); font-size: .95rem; text-align: center; }
+
+  .stage { width: min(82vw, 22rem); aspect-ratio: 1; }
+  .stage svg { width: 100%; height: 100%; overflow: visible; display: block; font-family: inherit; }
+  .track { fill: none; stroke: var(--line); stroke-width: 2; }
+  .trail { fill: none; stroke: var(--accent); stroke-width: 3; stroke-linecap: round; }
+  .lung  { fill: var(--glow); }
+  .dot   { fill: var(--accent); }
+  .phase { fill: var(--ink); font-size: 15px; font-weight: 400; }
+  .count { fill: var(--accent); font-size: 34px; font-weight: 300; font-variant-numeric: tabular-nums; }
+
+  .steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: .5rem; width: 100%; }
+  .step {
+    display: flex; flex-direction: column; align-items: center; gap: .35rem;
+    font-size: .82rem; color: var(--soft);
+    padding: .55rem .2rem .2rem; border-top: 3px solid var(--line);
+    transition: color .3s, border-color .3s;
+  }
+  .step.on { color: var(--ink); border-color: var(--accent); }
+  .stepper { display: flex; align-items: center; gap: .15rem; }
+  .stepper output { min-width: 2.3rem; text-align: center; color: var(--ink); font-weight: 400; font-variant-numeric: tabular-nums; }
+  .stepper button {
+    width: 1.8rem; height: 1.8rem; padding: 0; border-radius: 50%;
+    border: 1.5px solid var(--line); font-size: 1rem; line-height: 1;
+  }
+  .stepper button:disabled { opacity: .35; cursor: default; }
+  .steps:not(.custom) .stepper button { display: none; }
+
+  .controls { display: flex; gap: .75rem; }
+  button, select {
+    font: inherit; color: inherit; cursor: pointer;
+    border-radius: 999px; border: 1.5px solid var(--accent);
+    background: transparent; padding: .7rem 1.4rem; font-size: 1rem;
+  }
+  button.primary { background: var(--accent); color: var(--bg); font-weight: 500; min-width: 9rem; }
+  button:focus-visible, select:focus-visible, input:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
+
+  .options {
+    width: 100%; display: flex; flex-wrap: wrap; justify-content: center; gap: .6rem 1.25rem;
+    color: var(--soft); font-size: .9rem;
+  }
+  .options label { display: flex; align-items: center; gap: .4rem; cursor: pointer; }
+  .options select { padding: .35rem .8rem; font-size: .9rem; border-color: var(--line); }
+  input[type="checkbox"] { accent-color: var(--accent); width: 1.05rem; height: 1.05rem; }
+
+  .stats { color: var(--soft); font-size: .9rem; font-variant-numeric: tabular-nums; min-height: 1.3rem; }
+  .done { color: var(--accent); font-weight: 400; }
+  .sr { position: absolute; left: -9999px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Respiration carrée</h1>
+  <p class="sub" id="sub">Suivez le point autour du carré.</p>
+
+  <div class="stage" aria-hidden="true">
+    <svg viewBox="-10 -10 220 220">
+      <rect class="track" x="0" y="0" width="200" height="200"/>
+      <circle class="lung" id="lung" cx="100" cy="100" r="50"/>
+      <path class="trail" id="trail" d=""/>
+      <circle class="dot" id="dot" cx="0" cy="200" r="7"/>
+      <!-- texte ancré exactement sur le centre du cercle (100,100) -->
+      <text class="phase" id="phase" x="100" y="100" text-anchor="middle" dominant-baseline="central">Prêt ?</text>
+      <text class="count" id="count" x="100" y="100" text-anchor="middle" dominant-baseline="central"></text>
+    </svg>
+  </div>
+  <div class="sr" aria-live="polite" id="live"></div>
+
+  <div class="steps" id="steps"></div>
+
+  <div class="controls">
+    <button class="primary" id="toggle">Commencer</button>
+    <button id="reset">Réinitialiser</button>
+  </div>
+
+  <div class="stats" id="stats">0 cycle · 0:00</div>
+
+  <div class="options">
+    <label>Rythme
+      <select id="preset">
+        <option value="3,3,3,3">Carré 3-3-3-3</option>
+        <option value="4,4,4,4">Carré 4-4-4-4</option>
+        <option value="5,5,5,5">Carré 5-5-5-5</option>
+        <option value="4,7,8,0">Relaxation 4-7-8</option>
+        <option value="5,0,5,0">Cohérence 5-5</option>
+        <option value="custom">Personnalisé</option>
+      </select>
+    </label>
+    <label>Durée
+      <select id="duration">
+        <option value="60">1 min</option>
+        <option value="180" selected>3 min</option>
+        <option value="300">5 min</option>
+        <option value="600">10 min</option>
+        <option value="0">Libre</option>
+      </select>
+    </label>
+    <label><input type="checkbox" id="sound" checked> Son doux</label>
+    <label><input type="checkbox" id="vibrate"> Vibration</label>
+  </div>
+</main>
+
+<script>
+(() => {
+  // Côtés du carré : chaque étape parcourt un côté
+  const PHASES = [
+    { name: "Inspirez", step: "Inspirer", from: [0, 200],   to: [0, 0],     min: 1, tone: 440 },
+    { name: "Retenez",  step: "Retenir",  from: [0, 0],     to: [200, 0],   min: 0, tone: 523 },
+    { name: "Expirez",  step: "Expirer",  from: [200, 0],   to: [200, 200], min: 1, tone: 392 },
+    { name: "Retenez",  step: "Retenir",  from: [200, 200], to: [0, 200],   min: 0, tone: 330 }
+  ];
+  const MAX_S = 15;
+  const R_MIN = 50, R_MAX = 90;
+
+  const $ = id => document.getElementById(id);
+  const dot = $("dot"), trail = $("trail"), lung = $("lung");
+  const phaseEl = $("phase"), countEl = $("count"), live = $("live");
+  const toggleBtn = $("toggle"), resetBtn = $("reset");
+  const statsEl = $("stats"), durationSel = $("duration"), presetSel = $("preset");
+  const soundChk = $("sound"), vibChk = $("vibrate"), subEl = $("sub");
+  const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  let secs = [3, 3, 3, 3];
+  let running = false, finished = false, rafId = null, lastT = 0;
+  let total = 0, idx = 0, phaseT = 0, cycles = 0, lastIdx = -1, lastSec = -1;
+  let audioCtx = null;
+
+  const ease = t => 0.5 - Math.cos(Math.PI * t) / 2;
+  const lerp = (a, b, t) => a + (b - a) * t;
+  const fmt = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+  const dur = i => secs[i] * 1000;
+
+  // ---------- Réglages des durées ----------
+  const stepsEl = $("steps");
+  const stepCells = PHASES.map((p, i) => {
+    const cell = document.createElement("div");
+    cell.className = "step";
+    cell.innerHTML = `<span>${p.step}</span>
+      <div class="stepper">
+        <button type="button" aria-label="Moins de temps pour ${p.step.toLowerCase()}">−</button>
+        <output aria-live="polite"></output>
+        <button type="button" aria-label="Plus de temps pour ${p.step.toLowerCase()}">+</button>
+      </div>`;
+    const [minus, plus] = cell.querySelectorAll("button");
+    minus.addEventListener("click", () => setSec(i, secs[i] - 1));
+    plus.addEventListener("click", () => setSec(i, secs[i] + 1));
+    stepsEl.appendChild(cell);
+    return { cell, minus, plus, out: cell.querySelector("output") };
+  });
+
+  function setSec(i, v) {
+    secs[i] = Math.max(PHASES[i].min, Math.min(MAX_S, v));
+    refreshSteps(); save();
+  }
+
+  // les boutons + et − ne s'affichent qu'en mode Personnalisé
+  function applyMode() {
+    stepsEl.classList.toggle("custom", presetSel.value === "custom");
+  }
+
+  function refreshSteps() {
+    stepCells.forEach((c, i) => {
+      c.out.textContent = `${secs[i]} s`;
+      c.minus.disabled = secs[i] <= PHASES[i].min;
+      c.plus.disabled = secs[i] >= MAX_S;
+    });
+    subEl.textContent = `Rythme ${secs.join("-")} : suivez le point autour du carré.`;
+  }
+
+  function syncPreset() {
+    const key = secs.join(",");
+    presetSel.value = [...presetSel.options].some(o => o.value === key) ? key : "custom";
+  }
+
+  presetSel.addEventListener("change", () => {
+    if (presetSel.value !== "custom") {
+      presetSel.value.split(",").forEach((v, i) => setSec(i, +v));
+    }
+    applyMode(); save();
+  });
+
+  // ---------- Sons et vibration ----------
+  function tone(freq) {
+    if (!soundChk.checked) return;
+    try {
+      audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+      const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+      o.type = "sine"; o.frequency.value = freq;
+      const t = audioCtx.currentTime;
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(0.12, t + 0.05);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 1.2);
+      o.connect(g).connect(audioCtx.destination);
+      o.start(t); o.stop(t + 1.3);
+    } catch (e) {}
+  }
+  const buzz = () => { if (vibChk.checked && navigator.vibrate) navigator.vibrate(60); };
+
+  // ---------- Texte centré ----------
+  function setLabel(phase, count) {
+    phaseEl.textContent = phase;
+    countEl.textContent = count;
+    // avec un chiffre : bloc de deux lignes centré sur le cercle ; sinon une ligne au centre exact
+    if (count === "") {
+      phaseEl.setAttribute("y", 100);
+    } else {
+      phaseEl.setAttribute("y", 86);
+      countEl.setAttribute("y", 112);
+    }
+  }
+
+  // ---------- Animation ----------
+  function render() {
+    const p = PHASES[idx];
+    const t = Math.min(1, phaseT / dur(idx));
+    const x = lerp(p.from[0], p.to[0], t), y = lerp(p.from[1], p.to[1], t);
+    dot.setAttribute("cx", x); dot.setAttribute("cy", y);
+    trail.setAttribute("d", `M${p.from[0]},${p.from[1]} L${x},${y}`);
+
+    let r;
+    if (idx === 0) r = reduceMotion ? R_MAX : lerp(R_MIN, R_MAX, ease(t));
+    else if (idx === 1) r = R_MAX;
+    else if (idx === 2) r = reduceMotion ? R_MIN : lerp(R_MAX, R_MIN, ease(t));
+    else r = R_MIN;
+    lung.setAttribute("r", r);
+
+    const secLeft = Math.max(1, Math.ceil((dur(idx) - phaseT) / 1000));
+    if (idx !== lastIdx || secLeft !== lastSec) {
+      setLabel(p.name, String(secLeft));
+      if (idx !== lastIdx) {
+        stepCells.forEach((c, i) => c.cell.classList.toggle("on", i === idx));
+        live.textContent = `${p.name}, ${secs[idx]} secondes`;
+        tone(p.tone); buzz();
+      }
+      lastIdx = idx; lastSec = secLeft;
+    }
+    const c = cycles;
+    statsEl.textContent = `${c} cycle${c > 1 ? "s" : ""} · ${fmt(total / 1000)}`;
+  }
+
+  // passe à l'étape suivante en sautant celles réglées à 0 s
+  function advance() {
+    do {
+      idx = (idx + 1) % 4;
+      if (idx === 0) cycles++;
+    } while (secs[idx] === 0);
+  }
+
+  function loop(now) {
+    if (!running) return;
+    const dt = now - lastT; lastT = now;
+    total += dt; phaseT += dt;
+    while (phaseT >= dur(idx)) {
+      phaseT -= dur(idx);
+      advance();
+      const limit = +durationSel.value * 1000;
+      if (idx === 0 && limit && total >= limit) { finish(); return; }
+    }
+    render();
+    rafId = requestAnimationFrame(loop);
+  }
+
+  function start() {
+    if (finished) reset();
+    running = true;
+    lastT = performance.now();
+    toggleBtn.textContent = "Pause";
+    if (audioCtx && audioCtx.state === "suspended") audioCtx.resume();
+    render();
+    rafId = requestAnimationFrame(loop);
+  }
+
+  function pause() {
+    running = false;
+    cancelAnimationFrame(rafId);
+    toggleBtn.textContent = "Reprendre";
+    setLabel("En pause", "");
+    lastIdx = -1; lastSec = -1;
+  }
+
+  function finish() {
+    running = false; finished = true;
+    cancelAnimationFrame(rafId);
+    setLabel("Terminé", "");
+    lung.setAttribute("r", R_MIN);
+    trail.setAttribute("d", "");
+    dot.setAttribute("cx", 0); dot.setAttribute("cy", 200);
+    stepCells.forEach(c => c.cell.classList.remove("on"));
+    statsEl.innerHTML = `<span class="done">${cycles} cycle${cycles > 1 ? "s" : ""} · ${fmt(total / 1000)}</span>`;
+    toggleBtn.textContent = "Recommencer";
+    tone(523); setTimeout(() => tone(659), 350);
+  }
+
+  function reset() {
+    running = false; finished = false;
+    cancelAnimationFrame(rafId);
+    total = 0; idx = 0; phaseT = 0; cycles = 0; lastIdx = -1; lastSec = -1;
+    dot.setAttribute("cx", 0); dot.setAttribute("cy", 200);
+    trail.setAttribute("d", "");
+    lung.setAttribute("r", R_MIN);
+    setLabel("Prêt ?", "");
+    stepCells.forEach(c => c.cell.classList.remove("on"));
+    statsEl.textContent = "0 cycle · 0:00";
+    toggleBtn.textContent = "Commencer";
+  }
+
+  toggleBtn.addEventListener("click", () => running ? pause() : start());
+  resetBtn.addEventListener("click", reset);
+  document.addEventListener("keydown", e => {
+    if (e.code === "Space" && !["SELECT", "BUTTON"].includes(e.target.tagName)) {
+      e.preventDefault(); running ? pause() : start();
+    }
+  });
+  document.addEventListener("visibilitychange", () => { if (document.hidden && running) pause(); });
+
+  // ---------- Préférences ----------
+  function save() {
+    try {
+      localStorage.setItem("box-breath-prefs", JSON.stringify({
+        secs, preset: presetSel.value, duration: durationSel.value, sound: soundChk.checked, vibrate: vibChk.checked
+      }));
+    } catch (e) {}
+  }
+  try {
+    const s = JSON.parse(localStorage.getItem("box-breath-prefs") || "{}");
+    if (Array.isArray(s.secs) && s.secs.length === 4) secs = s.secs.map((v, i) => Math.max(PHASES[i].min, Math.min(MAX_S, +v || 0)));
+    if (s.duration != null) durationSel.value = s.duration;
+    if (s.preset && [...presetSel.options].some(o => o.value === s.preset)) presetSel.value = s.preset;
+    else syncPreset();
+    if (s.sound != null) soundChk.checked = s.sound;
+    if (s.vibrate != null) vibChk.checked = s.vibrate;
+  } catch (e) {}
+  [durationSel, soundChk, vibChk].forEach(el => el.addEventListener("change", save));
+
+  applyMode();
+  refreshSteps();
+  reset();
+})();
+</script>
+</body>
+</html>
