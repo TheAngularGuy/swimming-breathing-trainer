@@ -149,10 +149,10 @@
 (() => {
   // Côtés du carré : chaque étape parcourt un côté
   const PHASES = [
-    { name: "Inspirez", step: "Inspirer", from: [0, 200],   to: [0, 0],     min: 1, cue: "hold" },
-    { name: "Retenez",  step: "Retenir",  from: [0, 0],     to: [200, 0],   min: 0, cue: "inspire" },
-    { name: "Expirez",  step: "Expirer",  from: [200, 0],   to: [200, 200], min: 1, cue: "hold" },
-    { name: "Retenez",  step: "Retenir",  from: [200, 200], to: [0, 200],   min: 0, cue: "inspire" }
+    { name: "Inspirez", step: "Inspirer", from: [0, 200],   to: [0, 0],     min: 1, cue: "inspire" },
+    { name: "Retenez",  step: "Retenir",  from: [0, 0],     to: [200, 0],   min: 0, cue: "hold" },
+    { name: "Expirez",  step: "Expirer",  from: [200, 0],   to: [200, 200], min: 1, cue: "expire" },
+    { name: "Retenez",  step: "Retenir",  from: [200, 200], to: [0, 200],   min: 0, cue: "hold" }
   ];
   const MAX_S = 15;
   const R_MIN = 50, R_MAX = 90;
@@ -362,7 +362,7 @@
     stepCells.forEach(c => c.cell.classList.remove("on"));
     statsEl.innerHTML = `<span class="done">${cycles} cycle${cycles > 1 ? "s" : ""} · ${fmt(total / 1000)}</span>`;
     toggleBtn.textContent = "Recommencer";
-    cue("end");
+    // cue("end");
   }
 
   function reset() {
